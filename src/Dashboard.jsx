@@ -375,6 +375,7 @@ function PresetOverlay({ open, onClose, onLoad, onSave }) {
   const [presets, setPresets] = useState(() => loadPresets());
   const [name, setName] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => { if (open) { setPresets(loadPresets()); setName(""); setConfirmDelete(null); } }, [open]);
 
@@ -406,13 +407,44 @@ function PresetOverlay({ open, onClose, onLoad, onSave }) {
     onClose();
   };
 
+  const handleExport = (preset) => {
+    const blob = new Blob([JSON.stringify(preset, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${preset.name.replace(/[^a-zA-Z0-9-_ ]/g, "")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result);
+        if (parsed.data && (parsed.data.bulkProducts || parsed.data.retailProducts || parsed.data.tiers || parsed.data.scenarios)) {
+          const entry = { name: parsed.name || file.name.replace(/\.json$/, ""), data: parsed.data, savedAt: parsed.savedAt || new Date().toISOString() };
+          const updated = [...presets, entry];
+          savePresetsToStorage(updated);
+          setPresets(updated);
+        }
+      } catch { /* invalid file */ }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   if (!open) return null;
+
+  const btnSmall = { border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT };
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: "rgba(29,30,28,0.5)", backdropFilter: "blur(4px)" }} />
       <div onClick={e => e.stopPropagation()} style={{
-        position: "relative", background: PALETTE.card, borderRadius: 20, padding: 32, width: "100%", maxWidth: 480,
+        position: "relative", background: PALETTE.card, borderRadius: 20, padding: 32, width: "100%", maxWidth: 520,
         maxHeight: "80vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", fontFamily: FONT,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
@@ -420,7 +452,7 @@ function PresetOverlay({ open, onClose, onLoad, onSave }) {
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: PALETTE.textMuted, cursor: "pointer", padding: 4, lineHeight: 1 }}>&times;</button>
         </div>
 
-        {/* Save new */}
+        {/* Save new + Import */}
         <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
           <input
             value={name} onChange={e => setName(e.target.value)} placeholder="Preset name..."
@@ -432,20 +464,25 @@ function PresetOverlay({ open, onClose, onLoad, onSave }) {
           />
           <button onClick={handleSave} style={{
             background: PALETTE.warm, color: PALETTE.dark, border: "none", borderRadius: 10,
-            padding: "10px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap",
-          }}>Save Current</button>
+            padding: "10px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap",
+          }}>Save</button>
+          <button onClick={() => fileInputRef.current?.click()} style={{
+            background: PALETTE.cardAlt, color: PALETTE.text, border: `1px solid ${PALETTE.border}`, borderRadius: 10,
+            padding: "10px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap",
+          }}>Import</button>
+          <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: "none" }} />
         </div>
 
         {/* List */}
         {presets.length === 0 ? (
           <div style={{ textAlign: "center", padding: "32px 0", color: PALETTE.textMuted, fontSize: 13 }}>
-            No presets saved yet. Enter a name and click Save Current.
+            No presets saved yet. Enter a name and click Save, or Import a .json file.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {presets.map((preset, i) => (
               <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+                display: "flex", alignItems: "center", gap: 8, padding: "12px 16px",
                 background: PALETTE.bg, borderRadius: 12, border: `1px solid ${PALETTE.borderLight}`,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -455,20 +492,12 @@ function PresetOverlay({ open, onClose, onLoad, onSave }) {
                     {preset.data?.scenarios && ` \u00B7 ${preset.data.scenarios.length} scenario${preset.data.scenarios.length !== 1 ? "s" : ""}`}
                   </div>
                 </div>
-                <button onClick={() => handleLoad(preset)} style={{
-                  background: PALETTE.dark, color: PALETTE.bg, border: "none", borderRadius: 8,
-                  padding: "6px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
-                }}>Load</button>
+                <button onClick={() => handleLoad(preset)} style={{ ...btnSmall, background: PALETTE.dark, color: PALETTE.bg }}>Load</button>
+                <button onClick={() => handleExport(preset)} style={{ ...btnSmall, background: PALETTE.warm, color: PALETTE.dark }}>Export</button>
                 {confirmDelete === i ? (
-                  <button onClick={() => handleDelete(i)} style={{
-                    background: "#d44", color: "#fff", border: "none", borderRadius: 8,
-                    padding: "6px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
-                  }}>Confirm</button>
+                  <button onClick={() => handleDelete(i)} style={{ ...btnSmall, background: "#d44", color: "#fff" }}>Confirm</button>
                 ) : (
-                  <button onClick={() => setConfirmDelete(i)} style={{
-                    background: "none", border: `1px solid ${PALETTE.border}`, borderRadius: 8,
-                    padding: "5px 12px", fontSize: 11, color: PALETTE.textMuted, cursor: "pointer", fontFamily: FONT,
-                  }}>Delete</button>
+                  <button onClick={() => setConfirmDelete(i)} style={{ ...btnSmall, background: "none", border: `1px solid ${PALETTE.border}`, color: PALETTE.textMuted }}>Delete</button>
                 )}
               </div>
             ))}

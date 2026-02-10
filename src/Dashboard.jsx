@@ -338,18 +338,143 @@ function TabBar({ tabs, active, onChange }) {
   );
 }
 
-function SectionNav({ sections, active, onChange }) {
+function SectionNav({ sections, active, onChange, rightElement }) {
   return (
-    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", padding: "0 32px", marginBottom: 24 }}>
-      {sections.map(s => (
-        <button key={s.key} onClick={() => onChange(s.key)} style={{
-          background: active === s.key ? PALETTE.text : "transparent",
-          color: active === s.key ? PALETTE.bg : PALETTE.textMuted,
-          border: `1px solid ${active === s.key ? PALETTE.text : PALETTE.border}`,
-          borderRadius: 20, padding: "8px 18px", fontSize: 12, fontWeight: 600,
-          cursor: "pointer", fontFamily: FONT, transition: "all 0.2s",
-        }}>{s.icon} {s.label}</button>
-      ))}
+    <div style={{ display: "flex", alignItems: "center", padding: "0 32px", marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
+        {sections.map(s => (
+          <button key={s.key} onClick={() => onChange(s.key)} style={{
+            background: active === s.key ? PALETTE.text : "transparent",
+            color: active === s.key ? PALETTE.bg : PALETTE.textMuted,
+            border: `1px solid ${active === s.key ? PALETTE.text : PALETTE.border}`,
+            borderRadius: 20, padding: "8px 18px", fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: FONT, transition: "all 0.2s",
+          }}>{s.icon} {s.label}</button>
+        ))}
+      </div>
+      {rightElement}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRESET OVERLAY
+// ═══════════════════════════════════════════════════════════════
+const STORAGE_KEY = "ritual-powders-presets";
+
+function loadPresets() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function savePresetsToStorage(presets) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
+}
+
+function PresetOverlay({ open, onClose, onLoad, onSave }) {
+  const [presets, setPresets] = useState(() => loadPresets());
+  const [name, setName] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  useEffect(() => { if (open) { setPresets(loadPresets()); setName(""); setConfirmDelete(null); } }, [open]);
+
+  const handleSave = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const existing = presets.findIndex(p => p.name === trimmed);
+    const entry = { name: trimmed, data: onSave(), savedAt: new Date().toISOString() };
+    let updated;
+    if (existing >= 0) {
+      updated = presets.map((p, i) => i === existing ? entry : p);
+    } else {
+      updated = [...presets, entry];
+    }
+    savePresetsToStorage(updated);
+    setPresets(updated);
+    setName("");
+  };
+
+  const handleDelete = (idx) => {
+    const updated = presets.filter((_, i) => i !== idx);
+    savePresetsToStorage(updated);
+    setPresets(updated);
+    setConfirmDelete(null);
+  };
+
+  const handleLoad = (preset) => {
+    onLoad(preset.data);
+    onClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(29,30,28,0.5)", backdropFilter: "blur(4px)" }} />
+      <div onClick={e => e.stopPropagation()} style={{
+        position: "relative", background: PALETTE.card, borderRadius: 20, padding: 32, width: "100%", maxWidth: 480,
+        maxHeight: "80vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.2)", fontFamily: FONT,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, fontFamily: SERIF, margin: 0, color: PALETTE.text }}>Presets</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: PALETTE.textMuted, cursor: "pointer", padding: 4, lineHeight: 1 }}>&times;</button>
+        </div>
+
+        {/* Save new */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+          <input
+            value={name} onChange={e => setName(e.target.value)} placeholder="Preset name..."
+            onKeyDown={e => e.key === "Enter" && handleSave()}
+            style={{
+              flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${PALETTE.border}`,
+              fontSize: 13, fontFamily: FONT, color: PALETTE.text, outline: "none", background: PALETTE.cardAlt,
+            }}
+          />
+          <button onClick={handleSave} style={{
+            background: PALETTE.warm, color: PALETTE.dark, border: "none", borderRadius: 10,
+            padding: "10px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap",
+          }}>Save Current</button>
+        </div>
+
+        {/* List */}
+        {presets.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "32px 0", color: PALETTE.textMuted, fontSize: 13 }}>
+            No presets saved yet. Enter a name and click Save Current.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {presets.map((preset, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+                background: PALETTE.bg, borderRadius: 12, border: `1px solid ${PALETTE.borderLight}`,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: PALETTE.text }}>{preset.name}</div>
+                  <div style={{ fontSize: 10, color: PALETTE.textLight, marginTop: 2 }}>
+                    {new Date(preset.savedAt).toLocaleDateString()} {new Date(preset.savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {preset.data?.scenarios && ` \u00B7 ${preset.data.scenarios.length} scenario${preset.data.scenarios.length !== 1 ? "s" : ""}`}
+                  </div>
+                </div>
+                <button onClick={() => handleLoad(preset)} style={{
+                  background: PALETTE.dark, color: PALETTE.bg, border: "none", borderRadius: 8,
+                  padding: "6px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                }}>Load</button>
+                {confirmDelete === i ? (
+                  <button onClick={() => handleDelete(i)} style={{
+                    background: "#d44", color: "#fff", border: "none", borderRadius: 8,
+                    padding: "6px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}>Confirm</button>
+                ) : (
+                  <button onClick={() => setConfirmDelete(i)} style={{
+                    background: "none", border: `1px solid ${PALETTE.border}`, borderRadius: 8,
+                    padding: "5px 12px", fontSize: 11, color: PALETTE.textMuted, cursor: "pointer", fontFamily: FONT,
+                  }}>Delete</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -392,6 +517,18 @@ export default function RitualPowdersDashboard() {
   const [scenarios, setScenarios] = useState(DEFAULT_SCENARIOS);
   const [activeSection, setActiveSection] = useState("projections");
   const [chartMetric, setChartMetric] = useState("revenue");
+  const [showPresets, setShowPresets] = useState(false);
+
+  const getPresetData = useCallback(() => ({
+    bulkProducts, retailProducts, tiers, scenarios,
+  }), [bulkProducts, retailProducts, tiers, scenarios]);
+
+  const loadPresetData = useCallback((data) => {
+    if (data.bulkProducts) setBulkProducts(data.bulkProducts);
+    if (data.retailProducts) setRetailProducts(data.retailProducts);
+    if (data.tiers) setTiers(data.tiers);
+    if (data.scenarios) setScenarios(data.scenarios);
+  }, []);
 
   const updateBulk = (idx, field, val) => setBulkProducts(p => p.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const updateRetail = (idx, field, val) => setRetailProducts(p => p.map((x, i) => i === idx ? { ...x, [field]: val } : x));
@@ -492,7 +629,13 @@ export default function RitualPowdersDashboard() {
       </div>
 
       <div style={{ maxWidth: 1300, margin: "0 auto", padding: "24px 0 64px" }}>
-        <SectionNav sections={SECTIONS} active={activeSection} onChange={setActiveSection} />
+        <SectionNav sections={SECTIONS} active={activeSection} onChange={setActiveSection} rightElement={
+          <button onClick={() => setShowPresets(true)} style={{
+            background: PALETTE.warm, color: PALETTE.dark, border: "none", borderRadius: 20,
+            padding: "8px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT,
+            transition: "all 0.2s", flexShrink: 0,
+          }}>Presets</button>
+        } />
 
         {/* ═══════════ PROJECTIONS ═══════════ */}
         {activeSection === "projections" && (
@@ -854,6 +997,7 @@ export default function RitualPowdersDashboard() {
           </div>
         )}
       </div>
+      <PresetOverlay open={showPresets} onClose={() => setShowPresets(false)} onSave={getPresetData} onLoad={loadPresetData} />
     </div>
   );
 }

@@ -471,7 +471,7 @@ export default function RitualPowdersDashboard() {
       `}</style>
 
       {/* HEADER */}
-      <div style={{ padding: "40px 32px 24px", borderBottom: `1px solid ${PALETTE.border}` }}>
+      <div style={{ padding: "16px 32px 12px", borderBottom: `1px solid ${PALETTE.border}` }}>
         <div style={{ maxWidth: 1300, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20 }}>

@@ -475,7 +475,7 @@ export default function RitualPowdersDashboard() {
         <div style={{ maxWidth: 1300, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-              <img src="/logo.png" alt="Ritual Powders" style={{ height: 60, width: "auto" }} />
+              <img src="/logo.png" alt="Ritual Powders" style={{ height: 120, width: "auto" }} />
               <div>
                 <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: PALETTE.dark, fontWeight: 700, marginBottom: 4 }}>B2B Growth Model</div>
                 <p style={{ fontSize: 13, color: PALETTE.textMuted, margin: 0, maxWidth: 520 }}>
